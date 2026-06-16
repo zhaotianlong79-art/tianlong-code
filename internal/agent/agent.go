@@ -75,6 +75,7 @@ Environment:
 
 Guidelines:
 - Use the run_shell tool to inspect and modify the system. Generate commands in the syntax native to the host shell shown above.
+- To create, overwrite or edit files, ALWAYS use the write_file / edit_file / read_file tools. Never use shell here-docs (cat <<EOF), echo redirection or sed to write files — those cause quoting and escaping errors, especially with non-ASCII text.
 - Take one concrete step at a time; read output before deciding the next action.
 - Keep commands minimal and avoid destructive operations unless the user clearly asked for them.
 - When the task is complete, summarize what you did in plain language without calling more tools.`,
@@ -144,14 +145,21 @@ func (a *Agent) Run(ctx context.Context, userInput string) error {
 	return fmt.Errorf("reached max tool iterations (%d) without finishing", maxToolIterations)
 }
 
-// displayCommand extracts a human-friendly command line from a tool's JSON
-// arguments, falling back to the raw JSON for tools without a "command" field.
+// displayCommand extracts a human-friendly summary from a tool's JSON
+// arguments: the command for run_shell, or the path for file tools, falling
+// back to the raw JSON.
 func displayCommand(args string) string {
 	var in struct {
 		Command string `json:"command"`
+		Path    string `json:"path"`
 	}
-	if json.Unmarshal([]byte(args), &in) == nil && in.Command != "" {
-		return in.Command
+	if json.Unmarshal([]byte(args), &in) == nil {
+		if in.Command != "" {
+			return in.Command
+		}
+		if in.Path != "" {
+			return in.Path
+		}
 	}
 	return args
 }

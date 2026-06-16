@@ -140,11 +140,11 @@ func handleCommand(input string, mode *approval.Mode, ag *agent.Agent, p *consol
 // the user for anything that needs confirmation. mode is read through a pointer
 // so /approval can change it at runtime.
 func makeApprover(mode *approval.Mode, editor *lineEditor) tools.Approver {
-	return func(command string) (bool, string) {
-		if !approval.NeedsConfirmation(*mode, command) {
+	return func(action string, readOnly bool) (bool, string) {
+		if approval.AutoApprove(*mode, readOnly) {
 			return true, ""
 		}
-		fmt.Printf("\n  proposed command:\n    %s\n", command)
+		fmt.Printf("\n  proposed action:\n    %s\n", action)
 		ans, err := editor.ReadLine("  run it? [y/N] ")
 		if err != nil {
 			return false, "no input"
@@ -282,10 +282,18 @@ func (p *consolePrinter) ToolEnd(exitCode int, output string, isError bool) {
 
 // toolLabel maps internal tool names to Claude-style display labels.
 func toolLabel(name string) string {
-	if name == "run_shell" {
+	switch name {
+	case "run_shell":
 		return "Bash"
+	case "read_file":
+		return "Read"
+	case "write_file":
+		return "Write"
+	case "edit_file":
+		return "Edit"
+	default:
+		return name
 	}
-	return name
 }
 
 // oneLine collapses newlines and truncates to max runes for single-line display.

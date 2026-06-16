@@ -56,18 +56,14 @@ var gitReadSubcommands = map[string]bool{
 	"branch": true, "remote": true, "config": true, "rev-parse": true,
 }
 
-// NeedsConfirmation reports whether command must be confirmed under mode.
-func NeedsConfirmation(mode Mode, command string) bool {
-	switch mode {
-	case ModeYolo:
-		return false
-	case ModeAsk, ModeAutoRead:
-		return !isReadOnly(command)
-	}
-	return true
+// AutoApprove reports whether an action may run without confirmation. Read-only
+// actions always pass; otherwise only ModeYolo runs without asking.
+func AutoApprove(mode Mode, readOnly bool) bool {
+	return readOnly || mode == ModeYolo
 }
 
-func isReadOnly(command string) bool {
+// IsReadOnly reports whether a shell command appears side-effect-free.
+func IsReadOnly(command string) bool {
 	s := strings.TrimSpace(command)
 	// Anything chaining or redirecting is treated as potentially mutating.
 	if strings.ContainsAny(s, "|;&><`$(") || strings.Contains(s, "\n") {
