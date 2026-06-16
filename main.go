@@ -249,13 +249,13 @@ func (p *consolePrinter) ToolStart(name, command string) {
 	fmt.Printf("\n%s %s\n", p.paint(cBold, "⏺"), p.paint(cBold, title))
 }
 
-func (p *consolePrinter) ToolEnd(exitCode int, output string, isError bool) {
+func (p *consolePrinter) ToolEnd(status, output string, isError bool) {
 	// Status dot: green for success, red for failure.
 	dotColor := cGreen
 	if isError {
 		dotColor = cRed
 	}
-	fmt.Printf("  %s %s\n", p.paint(dotColor, "●"), p.paint(cDim, fmt.Sprintf("exit %d", exitCode)))
+	fmt.Printf("  %s %s\n", p.paint(dotColor, "●"), p.paint(cDim, status))
 
 	output = strings.TrimRight(output, "\n")
 	if output == "" {

@@ -18,11 +18,11 @@ const maxToolIterations = 25
 
 // Printer reports progress to the UI layer.
 type Printer interface {
-	AssistantDelta(text string)                        // a chunk of streamed assistant text
-	AssistantDone()                                    // the streamed text turn finished
-	ToolStart(name, command string)                    // a tool about to run
-	ToolEnd(exitCode int, output string, isError bool) // a tool finished
-	Notice(text string)                                // an out-of-band status note
+	AssistantDelta(text string)                  // a chunk of streamed assistant text
+	AssistantDone()                              // the streamed text turn finished
+	ToolStart(name, command string)              // a tool about to run
+	ToolEnd(status, output string, isError bool) // a tool finished
+	Notice(text string)                          // an out-of-band status note
 }
 
 // Agent holds conversation state across turns.
@@ -134,7 +134,7 @@ func (a *Agent) Run(ctx context.Context, userInput string) error {
 			}
 			a.printer.ToolStart(tc.Name, displayCommand(args))
 			res := tools.Dispatch(ctx, a.exec, a.approve, tc.Name, json.RawMessage(args))
-			a.printer.ToolEnd(res.ExitCode, res.Output, res.IsError)
+			a.printer.ToolEnd(res.Status, res.Output, res.IsError)
 			a.messages = append(a.messages, llm.Message{
 				Role:       llm.RoleTool,
 				ToolCallID: tc.ID,

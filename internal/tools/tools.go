@@ -127,13 +127,13 @@ type Approver func(action string, readOnly bool) (allowed bool, reason string)
 // model and structured fields the UI uses to render status and output.
 type Result struct {
 	ModelText string // content returned to the model as the tool result
-	ExitCode  int    // shell exit code (non-zero for any failure)
-	Output    string // combined stdout/stderr for display
+	Status    string // short status shown beside the colored dot (e.g. "exit 0", "wrote 4 lines")
+	Output    string // optional body shown under a white dot (shell output); empty for file tools
 	IsError   bool   // whether this represents a failure
 }
 
 func errResult(msg string) Result {
-	return Result{ModelText: msg, ExitCode: 1, Output: msg, IsError: true}
+	return Result{ModelText: msg, Status: msg, IsError: true}
 }
 
 // Dispatch executes a tool call by name and returns its Result.
@@ -153,7 +153,7 @@ func Dispatch(ctx context.Context, exec *shell.Executor, approve Approver, name 
 		res := exec.Run(ctx, in.Command, time.Duration(in.TimeoutSeconds)*time.Second)
 		return Result{
 			ModelText: formatResult(res),
-			ExitCode:  res.ExitCode,
+			Status:    fmt.Sprintf("exit %d", res.ExitCode),
 			Output:    displayOutput(res),
 			IsError:   res.ExitCode != 0,
 		}
@@ -214,20 +214,36 @@ func resolvePath(exec *shell.Executor, path string) string {
 	return filepath.Join(exec.Cwd(), path)
 }
 
+func countLines(s string) int {
+	if s == "" {
+		return 0
+	}
+	n := strings.Count(s, "\n")
+	if !strings.HasSuffix(s, "\n") {
+		n++
+	}
+	return n
+}
+
+// plural formats a count with a singular/plural unit ("1 line" / "3 lines").
+func plural(n int, unit string) string {
+	if n == 1 {
+		return "1 " + unit
+	}
+	return fmt.Sprintf("%d %ss", n, unit)
+}
+
 func readFile(path string) Result {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return errResult(fmt.Sprintf("read_file: %v", err))
 	}
 	content := string(data)
-	display := content
+	model := content
 	if len(content) > maxReadBytes {
-		content = content[:maxReadBytes] + "\n... [truncated]"
-		display = fmt.Sprintf("(%d bytes, showing first %d)", len(data), maxReadBytes)
-	} else {
-		display = fmt.Sprintf("%d bytes", len(data))
+		model = content[:maxReadBytes] + "\n... [truncated]"
 	}
-	return Result{ModelText: content, Output: display}
+	return Result{ModelText: model, Status: fmt.Sprintf("read %s (%d bytes)", plural(countLines(content), "line"), len(data))}
 }
 
 func writeFile(path, content string) Result {
@@ -239,12 +255,11 @@ func writeFile(path, content string) Result {
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		return errResult(fmt.Sprintf("write_file: %v", err))
 	}
-	lines := strings.Count(content, "\n")
-	if len(content) > 0 && !strings.HasSuffix(content, "\n") {
-		lines++
+	lines := countLines(content)
+	return Result{
+		ModelText: fmt.Sprintf("wrote %s (%d bytes, %d lines)", path, len(content), lines),
+		Status:    fmt.Sprintf("wrote %s (%d bytes)", plural(lines, "line"), len(content)),
 	}
-	msg := fmt.Sprintf("wrote %s (%d bytes, %d lines)", path, len(content), lines)
-	return Result{ModelText: msg, Output: msg}
 }
 
 func editFile(path, oldStr, newStr string, replaceAll bool) Result {
@@ -262,19 +277,20 @@ func editFile(path, oldStr, newStr string, replaceAll bool) Result {
 	case n > 1 && !replaceAll:
 		return errResult(fmt.Sprintf("edit_file: old_string is not unique (%d matches); set replace_all or add more context", n))
 	}
+	replaced := 1
 	if replaceAll {
 		content = strings.ReplaceAll(content, oldStr, newStr)
+		replaced = n
 	} else {
 		content = strings.Replace(content, oldStr, newStr, 1)
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		return errResult(fmt.Sprintf("edit_file: %v", err))
 	}
-	msg := fmt.Sprintf("edited %s (%d replacement(s))", path, n)
-	if !replaceAll {
-		msg = fmt.Sprintf("edited %s (1 replacement)", path)
+	return Result{
+		ModelText: fmt.Sprintf("edited %s (%s)", path, plural(replaced, "replacement")),
+		Status:    plural(replaced, "replacement"),
 	}
-	return Result{ModelText: msg, Output: msg}
 }
 
 // displayOutput merges stdout and stderr for on-screen rendering.

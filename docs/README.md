@@ -1,5 +1,7 @@
 # Tianlong Agent
 
+> [English](../README.md) | **中文文档**
+
 一个轻量级、**零第三方依赖**（纯 Go 标准库）的命令行编码 Agent，驱动 Claude 模型并在 **macOS**、**Linux** 和 **Windows** 上执行 Shell 命令。
 
 > 灵感来源于 [OpenAI Codex](https://openai.com/index/codex) 的 Agent 编程范式 — 基于 ReAct（Reason + Act）、通过 LLM 工具调用 API 让大模型自主执行 Shell 命令完成任务，并在人类监督下安全运行。
