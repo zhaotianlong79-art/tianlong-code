@@ -1,6 +1,6 @@
 # Tianlong Agent
 
-> [中文文档](README_CN.md) | English
+> [中文文档](docs/README.md) | English
 
 A lightweight, **dependency-free** (Go standard library only) CLI coding agent that drives a Claude model and executes shell commands across **macOS**, **Linux**, and **Windows**.
 
