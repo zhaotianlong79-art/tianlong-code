@@ -6,6 +6,7 @@
 # Build output
 /tianlong
 /tianlong-*
+/dist
 *.exe
 
 # OS / editor cruft
